@@ -24,12 +24,13 @@ input:focus,select:focus{outline:2px solid var(--ac);border-color:transparent}
 .stat{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px 16px;box-shadow:var(--sh)}
 .stat small{color:var(--mut);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}.stat b{display:block;font-size:24px;margin:4px 0 8px}
 .stat span{font-size:12px;color:var(--mut)}.bar{height:6px;background:var(--soft);border-radius:99px;overflow:hidden;margin-bottom:6px}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--ac),var(--ac2));border-radius:99px}
-.row{display:flex;gap:10px;align-items:center;margin:8px 0;flex-wrap:wrap}.row label{width:72px;font-weight:600;font-size:14px}.row input.grow{flex:1;min-width:220px}
+.row{display:flex;gap:10px;align-items:center;margin:8px 0;flex-wrap:wrap}.row label{width:72px;font-weight:600;font-size:14px}.row .grow{flex:1;min-width:220px}
 .wrap{overflow-x:auto;border:1px solid var(--bd);border-radius:14px;margin-top:12px}table{border-collapse:collapse;width:100%;font-size:13.5px}
 th{background:var(--soft);text-align:left;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.04em}th,td{padding:10px 12px;border-bottom:1px solid var(--bd);white-space:nowrap}
 tr:last-child td{border-bottom:0}td.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
 .pill{padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600}.pill.used{background:rgba(22,163,74,.14);color:var(--ok)}.pill.free{background:var(--soft);color:var(--mut)}
 button.s{padding:5px 11px;font-size:12px;background:var(--soft);color:var(--tx);border:1px solid var(--bd);margin-left:4px}button.s.danger{color:var(--err)}
+textarea{font:inherit;font-size:12px;padding:11px 13px;border:1px solid var(--bd);border-radius:12px;background:var(--soft);color:var(--tx);font-family:ui-monospace,Menlo,Consolas,monospace;resize:vertical}textarea:focus{outline:2px solid var(--ac);border-color:transparent}
 </style></head><body>
 <header class="top"><div class="brand"><span class="dot">🔐</span><div><b>Staff Access Admin</b><small>One-time code manager</small></div></div><button id="out" class="ghost" hidden>Sign out</button></header>
 <main class="page">
@@ -37,7 +38,7 @@ button.s{padding:5px 11px;font-size:12px;background:var(--soft);color:var(--tx);
 <div id="app" hidden style="display:grid;gap:18px">
 <div class="msg" id="msg" role="status" style="margin:0"></div>
 <section class="stats" id="sum"></section>
-<section class="card"><h2>1. Destination links</h2><p class="hint">Each set of codes opens its own survey link. Saving updates every code in that set.</p>
+<section class="card"><h2>1. Survey for each set</h2><p class="hint">Paste the SurveyMonkey <b>embed code</b> for each set (the survey appears inside the portal and no link is shown), or a link starting with https:// (staff are redirected). Saving updates every code in that set.</p>
 <div id="links"></div><button id="save">Save links</button></section>
 <section class="card"><h2>2. Add codes</h2><p class="hint">Set the links first. Import a CSV (Staff No., Set, Access Code) or generate new codes.</p>
 <div class="row"><input type="file" id="file" accept=".csv"><button id="imp">Import CSV</button></div>
@@ -83,13 +84,13 @@ async function load(){
 }
 function drawLinks(){
   $("links").innerHTML="";
-  for(let n=1;n<=4;n++){const r=el("div","row");const i=el("input","grow");i.id="u"+n;i.placeholder="https://…";i.value=links["s"+n]||"";r.append(el("label","",N(n)),i);$("links").append(r)}
+  for(let n=1;n<=4;n++){const r=el("div","row");const i=el("textarea","grow");i.id="u"+n;i.rows=3;i.placeholder="Paste the SurveyMonkey embed code, or a https:// link";i.value=links["s"+n]||"";r.append(el("label","",N(n)),i);$("links").append(r)}
 }
 async function batched(items,fn){for(let i=0;i<items.length;i+=400){const b=writeBatch(db);items.slice(i,i+400).forEach(x=>fn(b,x));await b.commit()}}
 $("save").onclick=async()=>{
   try{
     const next={};
-    for(let n=1;n<=4;n++){const u=$("u"+n).value.trim();if(u&&!/^https?:\/\//.test(u)){say("The link for "+N(n)+" must start with https://","err");return}next["s"+n]=u}
+    for(let n=1;n<=4;n++){const u=$("u"+n).value.trim();if(u&&!/^https?:\/\//i.test(u)&&!/<script|<iframe/i.test(u)){say(N(n)+": paste a SurveyMonkey embed code or a link starting with https://","err");return}next["s"+n]=u}
     for(let n=1;n<=4;n++)if(next["s"+n]){
       const q=await getDocs(query(collection(db,"codes"),where("set","==",n)));
       await batched(q.docs,(b,d)=>b.update(d.ref,{url:next["s"+n]}));
