@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Staff Access Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{--bg:#f3f5fb;--card:#fff;--tx:#0f172a;--mut:#64748b;--ac:#4f46e5;--ac2:#7c3aed;--bd:#e2e8f0;--soft:#f1f5f9;--err:#dc2626;--ok:#16a34a;--warn:#d97706;--sh:0 10px 40px rgba(79,70,229,.12);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1020;--card:#141a2e;--tx:#e5e9f5;--mut:#94a3b8;--ac:#818cf8;--ac2:#a78bfa;--bd:#263050;--soft:#1b2340;--err:#f87171;--ok:#4ade80;--warn:#fbbf24;--sh:0 10px 40px rgba(0,0,0,.4)}}
+:root[data-theme="dark"]{--bg:#0b1020;--card:#141a2e;--tx:#e5e9f5;--mut:#94a3b8;--ac:#818cf8;--ac2:#a78bfa;--bd:#263050;--soft:#1b2340;--err:#f87171;--ok:#4ade80;--warn:#fbbf24;--sh:0 10px 40px rgba(0,0,0,.4)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;min-height:100vh;color:var(--tx);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg) radial-gradient(900px 500px at 10% -10%,rgba(124,58,237,.18),transparent 60%),radial-gradient(800px 500px at 100% 0,rgba(79,70,229,.16),transparent 60%) no-repeat}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:20px;box-shadow:var(--sh);padding:28px}
+button{font:inherit;font-weight:600;border:0;border-radius:12px;padding:12px 18px;cursor:pointer;color:#fff;background:linear-gradient(135deg,var(--ac),var(--ac2));transition:transform .08s,opacity .2s}
+button:hover{opacity:.92}button:active{transform:scale(.98)}button:disabled{opacity:.55;cursor:not-allowed}
+button.ghost{background:var(--soft);color:var(--tx);border:1px solid var(--bd);padding:8px 14px;font-size:14px}
+input,select{font:inherit;padding:11px 13px;border:1px solid var(--bd);border-radius:12px;background:var(--soft);color:var(--tx)}
+input:focus,select:focus{outline:2px solid var(--ac);border-color:transparent}
+.msg{min-height:22px;font-size:14px;margin-top:14px}.err{color:var(--err)}.ok{color:var(--ok)}
+
+.top{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--bd);background:var(--card)}
+.brand{display:flex;gap:12px;align-items:center}.dot{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:linear-gradient(135deg,var(--ac),var(--ac2))}
+.brand b{display:block;font-size:16px}.brand small{color:var(--mut);font-size:12px}
+.page{max-width:1000px;margin:0 auto;padding:24px 16px 60px;display:grid;gap:18px}
+.card{padding:22px}h2{margin:0 0 4px;font-size:17px}.hint{margin:0 0 14px;color:var(--mut);font-size:13px;line-height:1.5}
+.center{text-align:center;max-width:420px;margin:60px auto}.center h2{font-size:22px;margin-bottom:8px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px 16px;box-shadow:var(--sh)}
+.stat small{color:var(--mut);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}.stat b{display:block;font-size:24px;margin:4px 0 8px}
+.stat span{font-size:12px;color:var(--mut)}.bar{height:6px;background:var(--soft);border-radius:99px;overflow:hidden;margin-bottom:6px}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--ac),var(--ac2));border-radius:99px}
+.row{display:flex;gap:10px;align-items:center;margin:8px 0;flex-wrap:wrap}.row label{width:56px;font-weight:600;font-size:14px}.row input.grow{flex:1;min-width:220px}
+.wrap{overflow-x:auto;border:1px solid var(--bd);border-radius:14px;margin-top:12px}table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{background:var(--soft);text-align:left;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.04em}th,td{padding:10px 12px;border-bottom:1px solid var(--bd);white-space:nowrap}
+tr:last-child td{border-bottom:0}td.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+.pill{padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600}.pill.used{background:rgba(22,163,74,.14);color:var(--ok)}.pill.free{background:var(--soft);color:var(--mut)}
+button.s{padding:5px 11px;font-size:12px;background:var(--soft);color:var(--tx);border:1px solid var(--bd);margin-left:4px}button.s.danger{color:var(--err)}
+</style></head><body>
+<header class="top"><div class="brand"><span class="dot">🔐</span><div><b>Staff Access Admin</b><small>One-time code manager</small></div></div><button id="out" class="ghost" hidden>Sign out</button></header>
+<main class="page">
+<section id="login" class="card center"><h2>Admin sign in</h2><p class="hint">Sign in with the Google account authorised in your Firestore rules.</p><button id="in">Sign in with Google</button></section>
+<div id="app" hidden style="display:grid;gap:18px">
+<div class="msg" id="msg" role="status" style="margin:0"></div>
+<section class="stats" id="sum"></section>
+<section class="card"><h2>1. Destination links</h2><p class="hint">Each set of codes opens its own survey link. Saving updates every code in that set.</p>
+<div id="links"></div><button id="save">Save links</button></section>
+<section class="card"><h2>2. Add codes</h2><p class="hint">Set the links first. Import a CSV (Staff No., Set, Access Code) or generate new codes.</p>
+<div class="row"><input type="file" id="file" accept=".csv"><button id="imp">Import CSV</button></div>
+<div class="row"><label for="gs">Set</label><select id="gs"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+<input type="number" id="gn" min="1" max="500" placeholder="How many codes (1–500)" style="width:220px"><button id="gen">Generate &amp; download CSV</button></div></section>
+<section class="card"><h2>3. Survey response check</h2><p class="hint">Enter the response count from SurveyMonkey for each set. You’ll be warned if responses exceed used codes, which may mean a link was shared.</p>
+<div id="sv"></div><button id="svb">Save &amp; check</button></section>
+<section class="card"><h2>4. Codes</h2>
+<div class="row"><input id="fq" class="grow" placeholder="Search staff no. or code"><select id="fs"><option value="">All sets</option><option>1</option><option>2</option><option>3</option><option>4</option></select>
+<select id="fu"><option value="">All statuses</option><option value="y">Used</option><option value="n">Unused</option></select></div>
+<div class="wrap"><table><thead><tr><th>Staff No.</th><th>Set</th><th>Code</th><th>Status</th><th>Used at</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></section>
+</div></main>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,collection,getDocs,doc,getDoc,setDoc,updateDoc,deleteDoc,writeBatch,query,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const firebaseConfig = {
+  apiKey: "AIzaSyBdYDJgVZLUuZfKGUVtFihcbBbddO5jdQw",
+  authDomain: "shr-eos-2026.firebaseapp.com",
+  projectId: "shr-eos-2026",
+  storageBucket: "shr-eos-2026.firebasestorage.app",
+  messagingSenderId: "589712256015",
+  appId: "1:589712256015:web:54c90208278873b570077a"
+};
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),$=id=>document.getElementById(id);
+let rows=[],links={},survey={};
+const say=(t,c)=>{$("msg").className="msg "+(c||"");$("msg").textContent=t};
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
+$("in").onclick=()=>signInWithPopup(auth,new GoogleAuthProvider()).catch(e=>alert(e.message));
+$("out").onclick=()=>signOut(auth);
+onAuthStateChanged(auth,u=>{$("login").hidden=!!u;$("app").hidden=!u;$("out").hidden=!u;if(u)load()});
+async function load(){
+  try{
+    const s=await getDocs(collection(db,"codes"));rows=s.docs.map(d=>({code:d.id,...d.data()}));
+    const c=await getDoc(doc(db,"config","links"));links=c.exists()?c.data():{};
+    const sv=await getDoc(doc(db,"config","survey"));survey=sv.exists()?sv.data():{};
+    drawLinks();renderSum();render();drawSurvey();
+  }catch(e){say("Access denied. Check that you signed in with the admin email and that the rules are published ("+e.code+").","err")}
+}
+function drawLinks(){
+  $("links").innerHTML="";
+  for(let n=1;n<=4;n++){const r=el("div","row");const i=el("input","grow");i.id="u"+n;i.placeholder="https://…";i.value=links["s"+n]||"";r.append(el("label","","Set "+n),i);$("links").append(r)}
+}
+async function batched(items,fn){for(let i=0;i<items.length;i+=400){const b=writeBatch(db);items.slice(i,i+400).forEach(x=>fn(b,x));await b.commit()}}
+$("save").onclick=async()=>{
+  try{
+    const next={};
+    for(let n=1;n<=4;n++){const u=$("u"+n).value.trim();if(u&&!/^https?:\/\//.test(u)){say("The link for Set "+n+" must start with https://","err");return}next["s"+n]=u}
+    for(let n=1;n<=4;n++)if(next["s"+n]){
+      const q=await getDocs(query(collection(db,"codes"),where("set","==",n)));
+      await batched(q.docs,(b,d)=>b.update(d.ref,{url:next["s"+n]}));
+    }
+    await setDoc(doc(db,"config","links"),next);say("Links saved.","ok");load();
+  }catch(e){say("Could not save: "+e.message,"err")}
+};
+$("imp").onclick=async()=>{
+  const f=$("file").files[0];if(!f){say("Choose a CSV file first.","err");return}
+  const lines=(await f.text()).replace(/^\uFEFF/,"").split(/\r?\n/).slice(1).filter(Boolean);
+  const items=lines.map(l=>l.split(",")).map(p=>({staffNo:p[0].trim(),set:parseInt(p[1]),code:p[2].trim().toUpperCase()}));
+  const bad=items.find(x=>!(x.set>=1&&x.set<=4)||!links["s"+x.set]||!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(x.code));
+  if(bad){say("Invalid row or no link saved for its set: "+bad.staffNo,"err");return}
+  try{
+    await batched(items,(b,x)=>b.set(doc(db,"codes",x.code),{staffNo:x.staffNo,set:x.set,url:links["s"+x.set],used:false,usedAt:null}));
+    say("Imported "+items.length+" codes.","ok");load();
+  }catch(e){say("Import failed: "+e.message,"err")}
+};
+$("gen").onclick=async()=>{
+  const n=Number($("gn").value),set=Number($("gs").value);
+  if(!(n>=1&&n<=500)){say("Enter a number between 1 and 500.","err");return}
+  if(!links["s"+set]){say("Save the link for Set "+set+" first.","err");return}
+  const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",have=new Set(rows.map(x=>x.code));
+  let max=rows.reduce((m,x)=>Math.max(m,parseInt((x.staffNo||"").replace(/\D/g,""))||0),0);
+  const items=[];
+  while(items.length<n){
+    const r=crypto.getRandomValues(new Uint8Array(8));let c=[...r].map(b=>A[b%32]).join("");c=c.slice(0,4)+"-"+c.slice(4);
+    if(have.has(c))continue;have.add(c);items.push({code:c,set,staffNo:"STAFF-"+String(++max).padStart(4,"0")});
+  }
+  try{
+    await batched(items,(b,x)=>b.set(doc(db,"codes",x.code),{staffNo:x.staffNo,set:x.set,url:links["s"+set],used:false,usedAt:null}));
+    const csv="\uFEFFStaff No.,Set,Access Code,Staff Name\r\n"+items.map(x=>[x.staffNo,x.set,x.code,""].join(",")).join("\r\n");
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="new_codes.csv";a.click();
+    say("Created "+n+" codes and downloaded new_codes.csv.","ok");load();
+  }catch(e){say("Could not create codes: "+e.message,"err")}
+};
+function renderSum(){
+  $("sum").innerHTML="";
+  const cards=[1,2,3,4].map(n=>{const r=rows.filter(x=>x.set===n);return{t:"Set "+n,u:r.filter(x=>x.used).length,n:r.length}});
+  cards.push({t:"All sets",u:rows.filter(x=>x.used).length,n:rows.length});
+  cards.forEach(c=>{const d=el("div","stat"),p=el("div","bar"),i=document.createElement("i");i.style.width=(c.n?Math.round(c.u/c.n*100):0)+"%";p.append(i);d.append(el("small","",c.t),el("b","",c.u+" / "+c.n),p,el("span","","codes used"));$("sum").append(d)});
+}
+function drawSurvey(){
+  $("sv").innerHTML="";
+  for(let n=1;n<=4;n++){
+    const used=rows.filter(x=>x.set===n&&x.used).length,r=survey["r"+n],row=el("div","row");
+    const i=el("input");i.type="number";i.min="0";i.id="r"+n;i.placeholder="Responses";i.style.width="140px";i.value=r??"";
+    const s=el("span");s.style.fontSize="13px";
+    if(r===undefined||r===""||r===null){s.textContent="Codes used: "+used}
+    else if(Number(r)>used){s.textContent="⚠ "+r+" responses vs "+used+" codes used ("+(r-used)+" extra). A link may have been shared.";s.style.color="var(--err)"}
+    else{s.textContent="✓ Looks good ("+r+" responses, "+used+" codes used)";s.style.color="var(--ok)"}
+    row.append(el("label","","Set "+n),i,s);$("sv").append(row)}
+}
+$("svb").onclick=async()=>{
+  const d={};for(let n=1;n<=4;n++){const v=$("r"+n).value;if(v!=="")d["r"+n]=Number(v)}
+  try{await setDoc(doc(db,"config","survey"),d);survey=d;drawSurvey();say("Saved.","ok")}catch(e){say("Could not save: "+e.message,"err")}
+};
+function render(){
+  const fs=$("fs").value,fu=$("fu").value,q=$("fq").value.trim().toLowerCase();$("tb").innerHTML="";
+  rows.filter(x=>(!fs||x.set==fs)&&(!fu||(fu==="y")===!!x.used)&&(!q||(x.code+" "+(x.staffNo||"")).toLowerCase().includes(q)))
+   .sort((a,b)=>(a.staffNo||"").localeCompare(b.staffNo||"")).forEach(x=>{
+    const tr=el("tr");
+    const st=el("td"),pill=el("span","pill "+(x.used?"used":"free"),x.used?"Used":"Unused");st.append(pill);
+    const c=el("td","mono",x.code);
+    tr.append(el("td","",x.staffNo||""),el("td","",x.set),c,st,el("td","",x.usedAt?x.usedAt.toDate().toLocaleString("en-GB"):"–"));
+    const td=el("td");
+    if(x.used){const b=el("button","s","Reset");b.onclick=async()=>{if(confirm("Reset code "+x.code+" so it can be used again?")){await updateDoc(doc(db,"codes",x.code),{used:false,usedAt:null});load()}};td.append(b)}
+    const d=el("button","s danger","Delete");d.onclick=async()=>{if(confirm("Permanently delete code "+x.code+" ("+x.staffNo+(x.used?", already used":"")+")?")){await deleteDoc(doc(db,"codes",x.code));load()}};
+    td.append(d);tr.append(td);$("tb").append(tr)});
+}
+$("fs").onchange=render;$("fu").onchange=render;$("fq").oninput=render;
+</script></body></html>
