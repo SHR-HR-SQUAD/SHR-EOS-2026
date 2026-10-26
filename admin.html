@@ -24,7 +24,7 @@ input:focus,select:focus{outline:2px solid var(--ac);border-color:transparent}
 .stat{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px 16px;box-shadow:var(--sh)}
 .stat small{color:var(--mut);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}.stat b{display:block;font-size:24px;margin:4px 0 8px}
 .stat span{font-size:12px;color:var(--mut)}.bar{height:6px;background:var(--soft);border-radius:99px;overflow:hidden;margin-bottom:6px}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--ac),var(--ac2));border-radius:99px}
-.row{display:flex;gap:10px;align-items:center;margin:8px 0;flex-wrap:wrap}.row label{width:56px;font-weight:600;font-size:14px}.row input.grow{flex:1;min-width:220px}
+.row{display:flex;gap:10px;align-items:center;margin:8px 0;flex-wrap:wrap}.row label{width:72px;font-weight:600;font-size:14px}.row input.grow{flex:1;min-width:220px}
 .wrap{overflow-x:auto;border:1px solid var(--bd);border-radius:14px;margin-top:12px}table{border-collapse:collapse;width:100%;font-size:13.5px}
 th{background:var(--soft);text-align:left;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.04em}th,td{padding:10px 12px;border-bottom:1px solid var(--bd);white-space:nowrap}
 tr:last-child td{border-bottom:0}td.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
@@ -41,12 +41,12 @@ button.s{padding:5px 11px;font-size:12px;background:var(--soft);color:var(--tx);
 <div id="links"></div><button id="save">Save links</button></section>
 <section class="card"><h2>2. Add codes</h2><p class="hint">Set the links first. Import a CSV (Staff No., Set, Access Code) or generate new codes.</p>
 <div class="row"><input type="file" id="file" accept=".csv"><button id="imp">Import CSV</button></div>
-<div class="row"><label for="gs">Set</label><select id="gs"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+<div class="row"><label for="gs">Set</label><select id="gs"></select>
 <input type="number" id="gn" min="1" max="500" placeholder="How many codes (1–500)" style="width:220px"><button id="gen">Generate &amp; download CSV</button></div></section>
 <section class="card"><h2>3. Survey response check</h2><p class="hint">Enter the response count from SurveyMonkey for each set. You’ll be warned if responses exceed used codes, which may mean a link was shared.</p>
 <div id="sv"></div><button id="svb">Save &amp; check</button></section>
 <section class="card"><h2>4. Codes</h2>
-<div class="row"><input id="fq" class="grow" placeholder="Search staff no. or code"><select id="fs"><option value="">All sets</option><option>1</option><option>2</option><option>3</option><option>4</option></select>
+<div class="row"><input id="fq" class="grow" placeholder="Search staff no. or code"><select id="fs"><option value="">All sets</option></select>
 <select id="fu"><option value="">All statuses</option><option value="y">Used</option><option value="n">Unused</option></select></div>
 <div class="wrap"><table><thead><tr><th>Staff No.</th><th>Set</th><th>Code</th><th>Status</th><th>Used at</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></section>
 </div></main>
@@ -63,6 +63,10 @@ const firebaseConfig = {
   appId: "1:589712256015:web:54c90208278873b570077a"
 };
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),$=id=>document.getElementById(id);
+// Display names for sets 1-4 (CSV and database still use the numbers 1-4)
+const SET_NAMES=["SLM","HRH","TWS","SO/M"];
+const N=n=>SET_NAMES[n-1]||("Set "+n);
+SET_NAMES.forEach((nm,i)=>{for(const id of ["gs","fs"]){const o=document.createElement("option");o.value=i+1;o.textContent=nm;$(id).append(o)}});
 let rows=[],links={},survey={};
 const say=(t,c)=>{$("msg").className="msg "+(c||"");$("msg").textContent=t};
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
@@ -79,13 +83,13 @@ async function load(){
 }
 function drawLinks(){
   $("links").innerHTML="";
-  for(let n=1;n<=4;n++){const r=el("div","row");const i=el("input","grow");i.id="u"+n;i.placeholder="https://…";i.value=links["s"+n]||"";r.append(el("label","","Set "+n),i);$("links").append(r)}
+  for(let n=1;n<=4;n++){const r=el("div","row");const i=el("input","grow");i.id="u"+n;i.placeholder="https://…";i.value=links["s"+n]||"";r.append(el("label","",N(n)),i);$("links").append(r)}
 }
 async function batched(items,fn){for(let i=0;i<items.length;i+=400){const b=writeBatch(db);items.slice(i,i+400).forEach(x=>fn(b,x));await b.commit()}}
 $("save").onclick=async()=>{
   try{
     const next={};
-    for(let n=1;n<=4;n++){const u=$("u"+n).value.trim();if(u&&!/^https?:\/\//.test(u)){say("The link for Set "+n+" must start with https://","err");return}next["s"+n]=u}
+    for(let n=1;n<=4;n++){const u=$("u"+n).value.trim();if(u&&!/^https?:\/\//.test(u)){say("The link for "+N(n)+" must start with https://","err");return}next["s"+n]=u}
     for(let n=1;n<=4;n++)if(next["s"+n]){
       const q=await getDocs(query(collection(db,"codes"),where("set","==",n)));
       await batched(q.docs,(b,d)=>b.update(d.ref,{url:next["s"+n]}));
@@ -107,7 +111,7 @@ $("imp").onclick=async()=>{
 $("gen").onclick=async()=>{
   const n=Number($("gn").value),set=Number($("gs").value);
   if(!(n>=1&&n<=500)){say("Enter a number between 1 and 500.","err");return}
-  if(!links["s"+set]){say("Save the link for Set "+set+" first.","err");return}
+  if(!links["s"+set]){say("Save the link for "+N(set)+" first.","err");return}
   const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",have=new Set(rows.map(x=>x.code));
   let max=rows.reduce((m,x)=>Math.max(m,parseInt((x.staffNo||"").replace(/\D/g,""))||0),0);
   const items=[];
@@ -124,7 +128,7 @@ $("gen").onclick=async()=>{
 };
 function renderSum(){
   $("sum").innerHTML="";
-  const cards=[1,2,3,4].map(n=>{const r=rows.filter(x=>x.set===n);return{t:"Set "+n,u:r.filter(x=>x.used).length,n:r.length}});
+  const cards=[1,2,3,4].map(n=>{const r=rows.filter(x=>x.set===n);return{t:N(n),u:r.filter(x=>x.used).length,n:r.length}});
   cards.push({t:"All sets",u:rows.filter(x=>x.used).length,n:rows.length});
   cards.forEach(c=>{const d=el("div","stat"),p=el("div","bar"),i=document.createElement("i");i.style.width=(c.n?Math.round(c.u/c.n*100):0)+"%";p.append(i);d.append(el("small","",c.t),el("b","",c.u+" / "+c.n),p,el("span","","codes used"));$("sum").append(d)});
 }
@@ -137,7 +141,7 @@ function drawSurvey(){
     if(r===undefined||r===""||r===null){s.textContent="Codes used: "+used}
     else if(Number(r)>used){s.textContent="⚠ "+r+" responses vs "+used+" codes used ("+(r-used)+" extra). A link may have been shared.";s.style.color="var(--err)"}
     else{s.textContent="✓ Looks good ("+r+" responses, "+used+" codes used)";s.style.color="var(--ok)"}
-    row.append(el("label","","Set "+n),i,s);$("sv").append(row)}
+    row.append(el("label","",N(n)),i,s);$("sv").append(row)}
 }
 $("svb").onclick=async()=>{
   const d={};for(let n=1;n<=4;n++){const v=$("r"+n).value;if(v!=="")d["r"+n]=Number(v)}
@@ -150,7 +154,7 @@ function render(){
     const tr=el("tr");
     const st=el("td"),pill=el("span","pill "+(x.used?"used":"free"),x.used?"Used":"Unused");st.append(pill);
     const c=el("td","mono",x.code);
-    tr.append(el("td","",x.staffNo||""),el("td","",x.set),c,st,el("td","",x.usedAt?x.usedAt.toDate().toLocaleString("en-GB"):"–"));
+    tr.append(el("td","",x.staffNo||""),el("td","",N(x.set)),c,st,el("td","",x.usedAt?x.usedAt.toDate().toLocaleString("en-GB"):"–"));
     const td=el("td");
     if(x.used){const b=el("button","s","Reset");b.onclick=async()=>{if(confirm("Reset code "+x.code+" so it can be used again?")){await updateDoc(doc(db,"codes",x.code),{used:false,usedAt:null});load()}};td.append(b)}
     const d=el("button","s danger","Delete");d.onclick=async()=>{if(confirm("Permanently delete code "+x.code+" ("+x.staffNo+(x.used?", already used":"")+")?")){await deleteDoc(doc(db,"codes",x.code));load()}};
