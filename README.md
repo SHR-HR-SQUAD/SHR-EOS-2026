@@ -1,2 +1,0 @@
-# SHR-EOS-2026
-EOS 2026 Portal
