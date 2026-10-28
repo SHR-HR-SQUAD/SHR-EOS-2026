@@ -13,7 +13,7 @@ button.ghost{background:var(--soft);color:var(--tx);border:1px solid var(--bd);p
 input,select{font:inherit;padding:11px 13px;border:1px solid var(--bd);border-radius:12px;background:var(--soft);color:var(--tx)}
 input:focus,select:focus{outline:2px solid var(--ac);border-color:transparent}
 .msg{min-height:22px;font-size:14px;margin-top:14px}.err{color:var(--err)}.ok{color:var(--ok)}
-
+ 
 .top{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--bd);background:var(--card)}
 .brand{display:flex;gap:12px;align-items:center}.dot{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:linear-gradient(135deg,var(--ac),var(--ac2))}
 .brand b{display:block;font-size:16px}.brand small{color:var(--mut);font-size:12px}
@@ -34,7 +34,9 @@ textarea{font:inherit;font-size:12px;padding:11px 13px;border:1px solid var(--bd
 </style></head><body>
 <header class="top"><div class="brand"><span class="dot">🔐</span><div><b>Staff Access Admin</b><small>One-time code manager</small></div></div><button id="out" class="ghost" hidden>Sign out</button></header>
 <main class="page">
-<section id="login" class="card center"><h2>Admin sign in</h2><p class="hint">Sign in with the Google account authorised in your Firestore rules.</p><button id="in">Sign in with Google</button></section>
+<section id="login" class="card center"><h2>Admin sign in</h2><p class="hint">Enter your admin ID and password.</p>
+<div style="display:grid;gap:10px;text-align:left"><input id="em" type="email" placeholder="Admin ID" autocomplete="username"><input id="pw" type="password" placeholder="Password" autocomplete="current-password"><button id="pin">Sign in</button><div class="msg err" id="lmsg" style="margin:0"></div></div>
+<p class="hint" style="margin:14px 0 8px">or</p><button id="in" class="ghost">Sign in with Google</button></section>
 <div id="app" hidden style="display:grid;gap:18px">
 <div class="msg" id="msg" role="status" style="margin:0"></div>
 <section class="stats" id="sum"></section>
@@ -46,15 +48,16 @@ textarea{font:inherit;font-size:12px;padding:11px 13px;border:1px solid var(--bd
 <input type="number" id="gn" min="1" max="500" placeholder="How many codes (1–500)" style="width:220px"><button id="gen">Generate &amp; download CSV</button></div></section>
 <section class="card"><h2>3. Survey response check</h2><p class="hint">Enter the response count from SurveyMonkey for each set. You’ll be warned if responses exceed used codes, which may mean a link was shared.</p>
 <div id="sv"></div><button id="svb">Save &amp; check</button></section>
-<section class="card"><h2>4. Codes</h2>
-<div class="row"><input id="fq" class="grow" placeholder="Search staff no. or code"><select id="fs"><option value="">All sets</option></select>
-<select id="fu"><option value="">All statuses</option><option value="y">Used</option><option value="n">Unused</option></select></div>
+<section class="card"><h2>4. Codes</h2><p class="hint">Pick a set to load its codes. Only that set is read from Firebase, so usage stays low. The summary cards above use cheap counts.</p>
+<div class="row"><input id="fq" class="grow" placeholder="Search loaded codes (staff no. or code)"><select id="fs"><option value="">Choose a set…</option></select>
+<select id="fu"><option value="">All statuses</option><option value="y">Used</option><option value="n">Unused</option></select><button id="rf" class="ghost">Refresh</button></div>
+<div class="hint" id="cnt" style="margin:10px 0 0"></div>
 <div class="wrap"><table><thead><tr><th>Staff No.</th><th>Set</th><th>Code</th><th>Status</th><th>Used at</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></section>
 </div></main>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {getFirestore,collection,getDocs,doc,getDoc,setDoc,updateDoc,deleteDoc,writeBatch,query,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getAuth,GoogleAuthProvider,signInWithPopup,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,collection,getDocs,getCountFromServer,doc,getDoc,setDoc,updateDoc,deleteDoc,writeBatch,query,where,orderBy,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const firebaseConfig = {
   apiKey: "AIzaSyBdYDJgVZLUuZfKGUVtFihcbBbddO5jdQw",
   authDomain: "shr-eos-2026.firebaseapp.com",
@@ -68,20 +71,57 @@ const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),$
 const SET_NAMES=["SLM","HRH","TWS","SO/M"];
 const N=n=>SET_NAMES[n-1]||("Set "+n);
 SET_NAMES.forEach((nm,i)=>{for(const id of ["gs","fs"]){const o=document.createElement("option");o.value=i+1;o.textContent=nm;$(id).append(o)}});
-let rows=[],links={},survey={};
+{const o=document.createElement("option");o.value="all";o.textContent="All sets (reads every code)";$("fs").append(o)}
+let rows=[],links={},survey={},stats={};
 const say=(t,c)=>{$("msg").className="msg "+(c||"");$("msg").textContent=t};
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
+ 
+// ---------- sign in ----------
 $("in").onclick=()=>signInWithPopup(auth,new GoogleAuthProvider()).catch(e=>alert(e.message));
+$("pin").onclick=async()=>{
+  const e=$("em").value.trim(),p=$("pw").value;
+  if(!e||!p){$("lmsg").textContent="Enter your ID and password.";return}
+  $("pin").disabled=true;$("lmsg").textContent="";
+  try{await signInWithEmailAndPassword(auth,e,p)}
+  catch(x){$("lmsg").textContent=x.code==="auth/operation-not-allowed"?"Email/password sign-in is not enabled in Firebase.":"Incorrect ID or password."}
+  $("pin").disabled=false;
+};
+$("pw").onkeydown=e=>{if(e.key==="Enter")$("pin").click()};
 $("out").onclick=()=>signOut(auth);
-onAuthStateChanged(auth,u=>{$("login").hidden=!!u;$("app").hidden=!u;$("out").hidden=!u;if(u)load()});
-async function load(){
-  try{
-    const s=await getDocs(collection(db,"codes"));rows=s.docs.map(d=>({code:d.id,...d.data()}));
-    const c=await getDoc(doc(db,"config","links"));links=c.exists()?c.data():{};
-    const sv=await getDoc(doc(db,"config","survey"));survey=sv.exists()?sv.data():{};
-    drawLinks();renderSum();render();drawSurvey();
-  }catch(e){say("Access denied. Check that you signed in with the admin email and that the rules are published ("+e.code+").","err")}
+onAuthStateChanged(auth,u=>{$("login").hidden=!!u;$("app").hidden=!u;$("out").hidden=!u;if(u)start()});
+async function start(){
+  try{await loadMeta();say("")}
+  catch(e){say("Access denied. Add this account’s UID to the admin list in your Firestore rules, then publish: "+(auth.currentUser?auth.currentUser.uid:"")+" ("+e.code+")","err")}
+  render();
 }
+ 
+// ---------- data loading (counts only, so Firebase reads stay low) ----------
+async function loadStats(){
+  const col=collection(db,"codes");
+  const res=await Promise.all([1,2,3,4].flatMap(n=>[
+    getCountFromServer(query(col,where("set","==",n))),
+    getCountFromServer(query(col,where("set","==",n),where("used","==",true)))]));
+  [1,2,3,4].forEach((n,i)=>{stats[n]={n:res[2*i].data().count,u:res[2*i+1].data().count}});
+}
+async function loadMeta(){
+  const c=await getDoc(doc(db,"config","links"));links=c.exists()?c.data():{};
+  const sv=await getDoc(doc(db,"config","survey"));survey=sv.exists()?sv.data():{};
+  await loadStats();drawLinks();renderSum();drawSurvey();
+}
+async function refreshStats(){await loadStats();renderSum();drawSurvey()}
+async function fetchRows(){
+  const fs=$("fs").value,fu=$("fu").value;
+  if(!fs){rows=[];render();return}
+  try{
+    const cons=[];
+    if(fs!=="all")cons.push(where("set","==",Number(fs)));
+    if(fu)cons.push(where("used","==",fu==="y"));
+    const s=await getDocs(query(collection(db,"codes"),...cons));
+    rows=s.docs.map(d=>({code:d.id,...d.data()}));render();
+  }catch(e){say("Could not load codes: "+e.message,"err")}
+}
+ 
+// ---------- links ----------
 function drawLinks(){
   $("links").innerHTML="";
   for(let n=1;n<=4;n++){const r=el("div","row");const i=el("textarea","grow");i.id="u"+n;i.rows=3;i.placeholder="Paste the SurveyMonkey embed code, or a https:// link";i.value=links["s"+n]||"";r.append(el("label","",N(n)),i);$("links").append(r)}
@@ -91,52 +131,56 @@ $("save").onclick=async()=>{
   try{
     const next={};
     for(let n=1;n<=4;n++){const u=$("u"+n).value.trim();if(u&&!/^https?:\/\//i.test(u)&&!/<script|<iframe/i.test(u)){say(N(n)+": paste a SurveyMonkey embed code or a link starting with https://","err");return}next["s"+n]=u}
-    for(let n=1;n<=4;n++)if(next["s"+n]){
+    for(let n=1;n<=4;n++)if(next["s"+n]&&next["s"+n]!==links["s"+n]){
       const q=await getDocs(query(collection(db,"codes"),where("set","==",n)));
       await batched(q.docs,(b,d)=>b.update(d.ref,{url:next["s"+n]}));
     }
-    await setDoc(doc(db,"config","links"),next);say("Links saved.","ok");load();
+    await setDoc(doc(db,"config","links"),next);links=next;say("Saved. Every code in the changed sets now uses the new survey.","ok");
   }catch(e){say("Could not save: "+e.message,"err")}
 };
+ 
+// ---------- add codes ----------
 $("imp").onclick=async()=>{
   const f=$("file").files[0];if(!f){say("Choose a CSV file first.","err");return}
   const lines=(await f.text()).replace(/^\uFEFF/,"").split(/\r?\n/).slice(1).filter(Boolean);
   const items=lines.map(l=>l.split(",")).map(p=>({staffNo:p[0].trim(),set:parseInt(p[1]),code:p[2].trim().toUpperCase()}));
   const bad=items.find(x=>!(x.set>=1&&x.set<=4)||!links["s"+x.set]||!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(x.code));
-  if(bad){say("Invalid row or no link saved for its set: "+bad.staffNo,"err");return}
+  if(bad){say("Invalid row or no survey saved for its set: "+bad.staffNo,"err");return}
   try{
     await batched(items,(b,x)=>b.set(doc(db,"codes",x.code),{staffNo:x.staffNo,set:x.set,url:links["s"+x.set],used:false,usedAt:null}));
-    say("Imported "+items.length+" codes.","ok");load();
+    say("Imported "+items.length+" codes.","ok");await refreshStats();await fetchRows();
   }catch(e){say("Import failed: "+e.message,"err")}
 };
 $("gen").onclick=async()=>{
   const n=Number($("gn").value),set=Number($("gs").value);
   if(!(n>=1&&n<=500)){say("Enter a number between 1 and 500.","err");return}
-  if(!links["s"+set]){say("Save the link for "+N(set)+" first.","err");return}
-  const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",have=new Set(rows.map(x=>x.code));
-  let max=rows.reduce((m,x)=>Math.max(m,parseInt((x.staffNo||"").replace(/\D/g,""))||0),0);
-  const items=[];
-  while(items.length<n){
-    const r=crypto.getRandomValues(new Uint8Array(8));let c=[...r].map(b=>A[b%32]).join("");c=c.slice(0,4)+"-"+c.slice(4);
-    if(have.has(c))continue;have.add(c);items.push({code:c,set,staffNo:"STAFF-"+String(++max).padStart(4,"0")});
-  }
+  if(!links["s"+set]){say("Save the survey for "+N(set)+" first.","err");return}
   try{
+    const last=await getDocs(query(collection(db,"codes"),orderBy("staffNo","desc"),limit(1)));
+    let max=last.empty?0:(parseInt((last.docs[0].data().staffNo||"").replace(/\D/g,""))||0);
+    const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",have=new Set(),items=[];
+    while(items.length<n){
+      const r=crypto.getRandomValues(new Uint8Array(8));let c=[...r].map(b=>A[b%32]).join("");c=c.slice(0,4)+"-"+c.slice(4);
+      if(have.has(c))continue;have.add(c);items.push({code:c,set,staffNo:"STAFF-"+String(++max).padStart(4,"0")});
+    }
     await batched(items,(b,x)=>b.set(doc(db,"codes",x.code),{staffNo:x.staffNo,set:x.set,url:links["s"+set],used:false,usedAt:null}));
     const csv="\uFEFFStaff No.,Set,Access Code,Staff Name\r\n"+items.map(x=>[x.staffNo,x.set,x.code,""].join(",")).join("\r\n");
     const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="new_codes.csv";a.click();
-    say("Created "+n+" codes and downloaded new_codes.csv.","ok");load();
+    say("Created "+n+" codes and downloaded new_codes.csv.","ok");await refreshStats();await fetchRows();
   }catch(e){say("Could not create codes: "+e.message,"err")}
 };
+ 
+// ---------- summary + response check ----------
 function renderSum(){
   $("sum").innerHTML="";
-  const cards=[1,2,3,4].map(n=>{const r=rows.filter(x=>x.set===n);return{t:N(n),u:r.filter(x=>x.used).length,n:r.length}});
-  cards.push({t:"All sets",u:rows.filter(x=>x.used).length,n:rows.length});
+  const cards=[1,2,3,4].map(n=>({t:N(n),u:stats[n]?stats[n].u:0,n:stats[n]?stats[n].n:0}));
+  cards.push({t:"All sets",u:cards.reduce((a,c)=>a+c.u,0),n:cards.reduce((a,c)=>a+c.n,0)});
   cards.forEach(c=>{const d=el("div","stat"),p=el("div","bar"),i=document.createElement("i");i.style.width=(c.n?Math.round(c.u/c.n*100):0)+"%";p.append(i);d.append(el("small","",c.t),el("b","",c.u+" / "+c.n),p,el("span","","codes used"));$("sum").append(d)});
 }
 function drawSurvey(){
   $("sv").innerHTML="";
   for(let n=1;n<=4;n++){
-    const used=rows.filter(x=>x.set===n&&x.used).length,r=survey["r"+n],row=el("div","row");
+    const used=stats[n]?stats[n].u:0,r=survey["r"+n],row=el("div","row");
     const i=el("input");i.type="number";i.min="0";i.id="r"+n;i.placeholder="Responses";i.style.width="140px";i.value=r??"";
     const s=el("span");s.style.fontSize="13px";
     if(r===undefined||r===""||r===null){s.textContent="Codes used: "+used}
@@ -148,18 +192,28 @@ $("svb").onclick=async()=>{
   const d={};for(let n=1;n<=4;n++){const v=$("r"+n).value;if(v!=="")d["r"+n]=Number(v)}
   try{await setDoc(doc(db,"config","survey"),d);survey=d;drawSurvey();say("Saved.","ok")}catch(e){say("Could not save: "+e.message,"err")}
 };
+ 
+// ---------- table ----------
 function render(){
-  const fs=$("fs").value,fu=$("fu").value,q=$("fq").value.trim().toLowerCase();$("tb").innerHTML="";
-  rows.filter(x=>(!fs||x.set==fs)&&(!fu||(fu==="y")===!!x.used)&&(!q||(x.code+" "+(x.staffNo||"")).toLowerCase().includes(q)))
-   .sort((a,b)=>(a.staffNo||"").localeCompare(b.staffNo||"")).forEach(x=>{
-    const tr=el("tr");
-    const st=el("td"),pill=el("span","pill "+(x.used?"used":"free"),x.used?"Used":"Unused");st.append(pill);
-    const c=el("td","mono",x.code);
-    tr.append(el("td","",x.staffNo||""),el("td","",N(x.set)),c,st,el("td","",x.usedAt?x.usedAt.toDate().toLocaleString("en-GB"):"–"));
+  const fs=$("fs").value,q=$("fq").value.trim().toLowerCase();$("tb").innerHTML="";
+  if(!fs){$("cnt").textContent="Choose a set above to load its codes. Only that set is read, which keeps Firebase usage low.";return}
+  const list=rows.filter(x=>!q||(x.code+" "+(x.staffNo||"")).toLowerCase().includes(q)).sort((a,b)=>(a.staffNo||"").localeCompare(b.staffNo||""));
+  $("cnt").textContent="Showing "+list.length+" of "+rows.length+" loaded codes";
+  list.forEach(x=>{
+    const tr=el("tr"),st=el("td");st.append(el("span","pill "+(x.used?"used":"free"),x.used?"Used":"Unused"));
+    tr.append(el("td","",x.staffNo||""),el("td","",N(x.set)),el("td","mono",x.code),st,el("td","",x.usedAt?x.usedAt.toDate().toLocaleString("en-GB"):"–"));
     const td=el("td");
-    if(x.used){const b=el("button","s","Reset");b.onclick=async()=>{if(confirm("Reset code "+x.code+" so it can be used again?")){await updateDoc(doc(db,"codes",x.code),{used:false,usedAt:null});load()}};td.append(b)}
-    const d=el("button","s danger","Delete");d.onclick=async()=>{if(confirm("Permanently delete code "+x.code+" ("+x.staffNo+(x.used?", already used":"")+")?")){await deleteDoc(doc(db,"codes",x.code));load()}};
+    if(x.used){const b=el("button","s","Reset");b.onclick=async()=>{
+      if(!confirm("Reset code "+x.code+" so it can be used again?"))return;
+      try{await updateDoc(doc(db,"codes",x.code),{used:false,usedAt:null});x.used=false;x.usedAt=null;if(stats[x.set])stats[x.set].u--;renderSum();drawSurvey();render()}catch(e){say("Could not reset: "+e.message,"err")}
+    };td.append(b)}
+    const d=el("button","s danger","Delete");d.onclick=async()=>{
+      if(!confirm("Permanently delete code "+x.code+" ("+x.staffNo+(x.used?", already used":"")+")?"))return;
+      try{await deleteDoc(doc(db,"codes",x.code));rows=rows.filter(r=>r.code!==x.code);if(stats[x.set]){stats[x.set].n--;if(x.used)stats[x.set].u--}renderSum();drawSurvey();render()}catch(e){say("Could not delete: "+e.message,"err")}
+    };
     td.append(d);tr.append(td);$("tb").append(tr)});
 }
-$("fs").onchange=render;$("fu").onchange=render;$("fq").oninput=render;
+$("fs").onchange=fetchRows;$("fu").onchange=fetchRows;$("fq").oninput=render;
+$("rf").onclick=async()=>{try{await refreshStats();await fetchRows()}catch(e){say("Could not refresh: "+e.message,"err")}};
 </script></body></html>
+ 
