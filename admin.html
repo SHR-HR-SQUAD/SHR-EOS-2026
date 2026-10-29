@@ -68,7 +68,8 @@ const firebaseConfig = {
 };
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),$=id=>document.getElementById(id);
 // Display names for sets 1-4 (CSV and database still use the numbers 1-4)
-const SET_NAMES=["SLM","HRH","TWS","SO/M"];
+const SET_NAMES=["SLM","HRH","TWS","SO/M","STB","SKS","SLP","SPP"];
+const SETS=SET_NAMES.map((_,i)=>i+1);
 const N=n=>SET_NAMES[n-1]||("Set "+n);
 SET_NAMES.forEach((nm,i)=>{for(const id of ["gs","fs"]){const o=document.createElement("option");o.value=i+1;o.textContent=nm;$(id).append(o)}});
 {const o=document.createElement("option");o.value="all";o.textContent="All sets (reads every code)";$("fs").append(o)}
@@ -98,10 +99,10 @@ async function start(){
 // ---------- data loading (counts only, so Firebase reads stay low) ----------
 async function loadStats(){
   const col=collection(db,"codes");
-  const res=await Promise.all([1,2,3,4].flatMap(n=>[
+  const res=await Promise.all(SETS.flatMap(n=>[
     getCountFromServer(query(col,where("set","==",n))),
     getCountFromServer(query(col,where("set","==",n),where("used","==",true)))]));
-  [1,2,3,4].forEach((n,i)=>{stats[n]={n:res[2*i].data().count,u:res[2*i+1].data().count}});
+  SETS.forEach((n,i)=>{stats[n]={n:res[2*i].data().count,u:res[2*i+1].data().count}});
 }
 async function loadMeta(){
   const c=await getDoc(doc(db,"config","links"));links=c.exists()?c.data():{};
@@ -124,14 +125,14 @@ async function fetchRows(){
 // ---------- links ----------
 function drawLinks(){
   $("links").innerHTML="";
-  for(let n=1;n<=4;n++){const r=el("div","row");const i=el("textarea","grow");i.id="u"+n;i.rows=3;i.placeholder="Paste the SurveyMonkey embed code, or a https:// link";i.value=links["s"+n]||"";r.append(el("label","",N(n)),i);$("links").append(r)}
+  for(let n=1;n<=SET_NAMES.length;n++){const r=el("div","row");const i=el("textarea","grow");i.id="u"+n;i.rows=3;i.placeholder="Paste the SurveyMonkey embed code, or a https:// link";i.value=links["s"+n]||"";r.append(el("label","",N(n)),i);$("links").append(r)}
 }
 async function batched(items,fn){for(let i=0;i<items.length;i+=400){const b=writeBatch(db);items.slice(i,i+400).forEach(x=>fn(b,x));await b.commit()}}
 $("save").onclick=async()=>{
   try{
     const next={};
-    for(let n=1;n<=4;n++){const u=$("u"+n).value.trim();if(u&&!/^https?:\/\//i.test(u)&&!/<script|<iframe/i.test(u)){say(N(n)+": paste a SurveyMonkey embed code or a link starting with https://","err");return}next["s"+n]=u}
-    for(let n=1;n<=4;n++)if(next["s"+n]&&next["s"+n]!==links["s"+n]){
+    for(let n=1;n<=SET_NAMES.length;n++){const u=$("u"+n).value.trim();if(u&&!/^https?:\/\//i.test(u)&&!/<script|<iframe/i.test(u)){say(N(n)+": paste a SurveyMonkey embed code or a link starting with https://","err");return}next["s"+n]=u}
+    for(let n=1;n<=SET_NAMES.length;n++)if(next["s"+n]&&next["s"+n]!==links["s"+n]){
       const q=await getDocs(query(collection(db,"codes"),where("set","==",n)));
       await batched(q.docs,(b,d)=>b.update(d.ref,{url:next["s"+n]}));
     }
@@ -144,7 +145,7 @@ $("imp").onclick=async()=>{
   const f=$("file").files[0];if(!f){say("Choose a CSV file first.","err");return}
   const lines=(await f.text()).replace(/^\uFEFF/,"").split(/\r?\n/).slice(1).filter(Boolean);
   const items=lines.map(l=>l.split(",")).map(p=>({staffNo:p[0].trim(),set:parseInt(p[1]),code:p[2].trim().toUpperCase()}));
-  const bad=items.find(x=>!(x.set>=1&&x.set<=4)||!links["s"+x.set]||!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(x.code));
+  const bad=items.find(x=>!(x.set>=1&&x.set<=SET_NAMES.length)||!links["s"+x.set]||!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(x.code));
   if(bad){say("Invalid row or no survey saved for its set: "+bad.staffNo,"err");return}
   try{
     await batched(items,(b,x)=>b.set(doc(db,"codes",x.code),{staffNo:x.staffNo,set:x.set,url:links["s"+x.set],used:false,usedAt:null}));
@@ -173,13 +174,13 @@ $("gen").onclick=async()=>{
 // ---------- summary + response check ----------
 function renderSum(){
   $("sum").innerHTML="";
-  const cards=[1,2,3,4].map(n=>({t:N(n),u:stats[n]?stats[n].u:0,n:stats[n]?stats[n].n:0}));
+  const cards=SETS.map(n=>({t:N(n),u:stats[n]?stats[n].u:0,n:stats[n]?stats[n].n:0}));
   cards.push({t:"All sets",u:cards.reduce((a,c)=>a+c.u,0),n:cards.reduce((a,c)=>a+c.n,0)});
   cards.forEach(c=>{const d=el("div","stat"),p=el("div","bar"),i=document.createElement("i");i.style.width=(c.n?Math.round(c.u/c.n*100):0)+"%";p.append(i);d.append(el("small","",c.t),el("b","",c.u+" / "+c.n),p,el("span","","codes used"));$("sum").append(d)});
 }
 function drawSurvey(){
   $("sv").innerHTML="";
-  for(let n=1;n<=4;n++){
+  for(let n=1;n<=SET_NAMES.length;n++){
     const used=stats[n]?stats[n].u:0,r=survey["r"+n],row=el("div","row");
     const i=el("input");i.type="number";i.min="0";i.id="r"+n;i.placeholder="Responses";i.style.width="140px";i.value=r??"";
     const s=el("span");s.style.fontSize="13px";
@@ -189,7 +190,7 @@ function drawSurvey(){
     row.append(el("label","",N(n)),i,s);$("sv").append(row)}
 }
 $("svb").onclick=async()=>{
-  const d={};for(let n=1;n<=4;n++){const v=$("r"+n).value;if(v!=="")d["r"+n]=Number(v)}
+  const d={};for(let n=1;n<=SET_NAMES.length;n++){const v=$("r"+n).value;if(v!=="")d["r"+n]=Number(v)}
   try{await setDoc(doc(db,"config","survey"),d);survey=d;drawSurvey();say("Saved.","ok")}catch(e){say("Could not save: "+e.message,"err")}
 };
  
@@ -216,4 +217,3 @@ function render(){
 $("fs").onchange=fetchRows;$("fu").onchange=fetchRows;$("fq").oninput=render;
 $("rf").onclick=async()=>{try{await refreshStats();await fetchRows()}catch(e){say("Could not refresh: "+e.message,"err")}};
 </script></body></html>
- 
