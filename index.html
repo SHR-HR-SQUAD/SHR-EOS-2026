@@ -21,7 +21,7 @@ h1{font-size:26px;margin:0 0 8px;letter-spacing:-.02em}.sub{color:var(--mut);fon
 label{display:block;text-align:left;font-size:13px;font-weight:600;color:var(--mut);margin-bottom:8px}
 #code{width:100%;font-size:24px;letter-spacing:.22em;text-align:center;text-transform:uppercase;padding:16px;font-family:ui-monospace,Menlo,Consolas,monospace}
 #go{width:100%;margin-top:14px;font-size:16px;padding:15px}
-body.sv{display:block}#survey{max-width:min(1200px,100%);margin:0 auto;padding:24px}#survey h2{margin:0 0 6px;font-size:20px}#survey .sub{margin-bottom:18px}#host{min-height:200px}#host iframe{width:100%!important;max-width:100%!important;height:max(900px,calc(100vh - 160px))!important;border:0}@media(max-width:600px){#survey{padding:14px 8px}}
+body.sv{display:block}#survey{max-width:min(1200px,100%);margin:0 auto;padding:24px}#survey h2{margin:0 0 6px;font-size:20px}#survey .sub{margin-bottom:18px}#host{min-height:200px}#host iframe{width:100%!important;max-width:100%!important;border:0}@media(max-width:600px){#survey{padding:14px 8px}}
 .foot{margin-top:26px;padding-top:18px;border-top:1px solid var(--bd);font-size:13px;color:var(--mut)}
 </style></head><body>
 <main class="card" id="gate">
@@ -54,6 +54,23 @@ function showSurvey(html){
     [...old.attributes].forEach(a=>s.setAttribute(a.name,a.value));
     s.textContent=old.textContent;old.replaceWith(s);
   });
+  startSizing();
+}
+// Make the survey frame and every wrapper around it the same tall height, so nothing is clipped
+let sizing=false;
+function sizeSurvey(){
+  const host=$("host"),f=host.querySelector("iframe");if(!f)return;
+  const h=Math.max(900,innerHeight-160)+"px";
+  for(let n=f;n&&n!==host;n=n.parentElement){
+    if(n.style.getPropertyValue("height")!==h||n.style.getPropertyPriority("height")!=="important")n.style.setProperty("height",h,"important");
+    n.style.setProperty("max-height","none","important");
+    if(n!==f)n.style.setProperty("overflow","visible","important");
+  }
+}
+function startSizing(){
+  if(sizing)return;sizing=true;
+  new MutationObserver(sizeSurvey).observe($("host"),{childList:true,subtree:true,attributes:true,attributeFilter:["style"]});
+  addEventListener("resize",sizeSurvey);sizeSurvey();
 }
 try{const k=sessionStorage.getItem("sv");if(k)showSurvey(k)}catch(e){}
 const say=(t,c)=>{$("msg").className="msg "+c;$("msg").textContent=t};
@@ -91,3 +108,4 @@ $("go").onclick=unlock;$("code").onkeydown=e=>{if(e.key==="Enter")unlock()};
   <div id="host"></div>
 </section>
 </body></html>
+ 
