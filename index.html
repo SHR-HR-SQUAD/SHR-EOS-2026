@@ -13,7 +13,7 @@ button.ghost{background:var(--soft);color:var(--tx);border:1px solid var(--bd);p
 input,select{font:inherit;padding:11px 13px;border:1px solid var(--bd);border-radius:12px;background:var(--soft);color:var(--tx)}
 input:focus,select:focus{outline:2px solid var(--ac);border-color:transparent}
 .msg{min-height:22px;font-size:14px;margin-top:14px}.err{color:var(--err)}.ok{color:var(--ok)}
-
+ 
 body{display:grid;place-items:center;padding:20px}
 .card{width:100%;max-width:420px;text-align:center;padding:40px 32px 28px}
 .badge{width:68px;height:68px;margin:0 auto 18px;border-radius:20px;display:grid;place-items:center;background:linear-gradient(135deg,var(--ac),var(--ac2));box-shadow:0 10px 24px rgba(79,70,229,.35)}
@@ -21,7 +21,7 @@ h1{font-size:26px;margin:0 0 8px;letter-spacing:-.02em}.sub{color:var(--mut);fon
 label{display:block;text-align:left;font-size:13px;font-weight:600;color:var(--mut);margin-bottom:8px}
 #code{width:100%;font-size:24px;letter-spacing:.22em;text-align:center;text-transform:uppercase;padding:16px;font-family:ui-monospace,Menlo,Consolas,monospace}
 #go{width:100%;margin-top:14px;font-size:16px;padding:15px}
-body.sv{display:block}#survey{max-width:860px;margin:0 auto;padding:24px}#survey h2{margin:0 0 6px;font-size:20px}#survey .sub{margin-bottom:18px}#host{min-height:200px}
+body.sv{display:block}#survey{max-width:min(1200px,100%);margin:0 auto;padding:24px}#survey h2{margin:0 0 6px;font-size:20px}#survey .sub{margin-bottom:18px}#host{min-height:200px}#host iframe{width:100%!important;max-width:100%!important;height:max(900px,calc(100vh - 160px))!important;border:0}@media(max-width:600px){#survey{padding:14px 8px}}
 .foot{margin-top:26px;padding-top:18px;border-top:1px solid var(--bd);font-size:13px;color:var(--mut)}
 </style></head><body>
 <main class="card" id="gate">
